@@ -1,29 +1,67 @@
-import requests
-import json
-from flask import Flask
+"""
+Простое веб‑приложение на Flask для отображения курсов валют ЦБ РФ.
+
+Функциональность:
+- Получение ежедневного JSON с курсами валют с https://www.cbr-xml-daily.ru/daily_json.js
+- Преобразование данных в HTML‑таблицу и отдача на корневом маршруте "/"
+
+Замечание: текущая реализация формирования заголовков (<th>) в таблице содержит
+ошибку верстки (пустые заголовки без текста и закрывающего тега), оставлена как есть
+для демонстрации, см. комментарии в create_html.
+"""
+
+import requests  # HTTP‑клиент для обращения к внешнему API
+import json      # Работа с JSON (декодиро��ание строки в Python‑объекты)
+from flask import Flask  # Веб‑фреймворк для маршрутизации и запуска сервера
 
 
 def get_valutes_list():
+    """Запрашивает JSON с курсами валют у ЦБ РФ и возвращает список валют.
+
+    Возвращает:
+        list[dict]: Список словарей, где каждый словарь описывает валюту
+        (например: CharCode, Name, Nominal, Value, Previous и т.д.).
+    """
     url = 'https://www.cbr-xml-daily.ru/daily_json.js'
-    response = requests.get(url)
-    data = json.loads(response.text)
+    response = requests.get(url)  # Простой GET‑запрос без таймаута/обработки ошибок
+    data = json.loads(response.text)  # Преобразуем текст ответа в Python‑объект
+    # Извлекаем значения из словаря data['Valute'] -> получаем список валют
     valutes = list(data['Valute'].values())
     return valutes
 
 
+# Инициализация Flask‑приложения
 app = Flask(__name__)
 
 
 def create_html(valutes):
+    """Формирует HTML‑страницу с заголовком и таблицей валют.
+
+    Аргументы:
+        valutes (list[dict]): Список валют (словарей) для отображения.
+
+    Возвращает:
+        str: HTML‑строка с таблицей курсов.
+
+    Примечание:
+        В данной реализации заголовок таблицы (<th>) формируется некорректно:
+        в цикле создаются пустые <th> без текста и закрывающего тега. Это намеренно
+        оставлено без исправлений, чтобы не менять текущую логику; улучшение
+        зафиксировано в README как пункт дорожной карты.
+    """
     text = '<h1>Exchange rate</h1>'
     text += '<table>'
+
+    # Формирование строки заголовков таблицы
     text += '<tr>'
-    for _ in valutes[0]:
-        text += f'<th><th>'
+    for _ in valutes[0]:  # Перебираем ключи первой валюты (но не выводим имена)
+        text += f'<th><th>'  # Здесь ошибка: пустые заголовки и незакрытый тег </th>
     text += '</tr>'
+
+    # Формирование строк таблицы со значениями валют
     for valute in valutes:
         text += '<tr>'
-        for v in valute.values():
+        for v in valute.values():  # Порядок столбцов следует порядку ключей словаря
             text += f'<td>{v}</td>'
         text += '</tr>'
 
@@ -33,10 +71,15 @@ def create_html(valutes):
 
 @app.route("/")
 def index():
-    valutes = get_valutes_list()
-    html = create_html(valutes)
+    """HTTP‑обработчик корневого маршрута.
+
+    Получает список валют и возвращает сгенерированный HTML.
+    """
+    valutes = get_valutes_list()  # Запрашиваем данные у внешнего API
+    html = create_html(valutes)   # Генерируем HTML‑таблицу
     return html
 
 
 if __name__ == "__main__":
-    app.run()
+    # Запускаем встроенный dev‑сервер Flask (не рекомендуется для продакшена)
+    app.run()  # Можно указать параметры: app.run(host="0.0.0.0", port=5000, debug=True)
